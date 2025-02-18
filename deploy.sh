@@ -338,7 +338,7 @@ setup_laravel() {
     
     # Set up Nginx configuration
     echo "Setting up Nginx configuration..."
-    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << 'EOF'
+    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
 server {
     listen 80;
     server_name ${domain_name};
