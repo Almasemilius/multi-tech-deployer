@@ -329,6 +329,7 @@ setup_laravel() {
             sed -i 's/^# DB_PASSWORD=/DB_PASSWORD=/' .env
             
             # Update the values
+            sed -i "s/^DB_CONNECTION=.*$/DB_CONNECTION=${db_connection}/" .env
             sed -i "s/^DB_HOST=.*$/DB_HOST=${db_host}/" .env
             sed -i "s/^DB_PORT=.*$/DB_PORT=${db_port}/" .env
             sed -i "s/^DB_DATABASE=.*$/DB_DATABASE=${db_name}/" .env
