@@ -336,34 +336,9 @@ setup_laravel() {
     php artisan route:cache
     php artisan view:cache
     
-    # Set up Apache/Nginx configuration
-    echo "Setting up web server configuration..."
-    if command -v apache2 &> /dev/null; then
-        # Apache configuration
-        sudo bash -c "cat > /etc/apache2/sites-available/${app_name}.conf << EOF
-<VirtualHost *:80>
-    ServerName ${app_name}
-    DocumentRoot $(pwd)/public
-    
-    <Directory $(pwd)/public>
-        Options Indexes FollowSymLinks
-        AllowOverride All
-        Require all granted
-    </Directory>
-    
-    ErrorLog \${APACHE_LOG_DIR}/${app_name}_error.log
-    CustomLog \${APACHE_LOG_DIR}/${app_name}_access.log combined
-</VirtualHost>
-EOF"
-        
-        sudo a2ensite ${app_name}
-        sudo systemctl reload apache2
-        
-    elif command -v nginx &> /dev/null; then
-        # Nginx configuration
-        echo "Setting up Nginx configuration..."
-        
-        sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << 'EOF'
+    # Set up Nginx configuration
+    echo "Setting up Nginx configuration..."
+    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << 'EOF'
 server {
     listen 80;
     server_name ${domain_name};
@@ -387,14 +362,12 @@ server {
     }
 }
 EOF"
-        
-        sudo ln -sf /etc/nginx/sites-available/${app_name} /etc/nginx/sites-enabled/
-        sudo nginx -t && sudo systemctl reload nginx
-    else
-        echo "Neither Apache nor Nginx found. Please install a web server manually."
-    fi
     
+    sudo ln -sf /etc/nginx/sites-available/${app_name} /etc/nginx/sites-enabled/
+    sudo nginx -t && sudo systemctl reload nginx
+
     echo "Laravel application deployed successfully!"
+    echo "Your application is now accessible at http://${domain_name}"
 }
 
 # Function to set up Remix application
