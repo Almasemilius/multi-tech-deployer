@@ -325,6 +325,10 @@ setup_laravel() {
     # Run migrations
     echo "Running database migrations..."
     php artisan migrate --force
+
+	#Seed Database
+	echo "Seeding database..."
+	php artisan db:seed
     
     # Optimize Laravel
     php artisan optimize
