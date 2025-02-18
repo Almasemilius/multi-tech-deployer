@@ -248,6 +248,21 @@ EOF"
 setup_laravel() {
     echo "Setting up Laravel application..."
     
+    # Detect PHP version
+    php_version=$(php -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;")
+    if [ -z "$php_version" ]; then
+        echo "Error: Could not detect PHP version"
+        exit 1
+    fi
+    echo "Detected PHP version: $php_version"
+    
+    # Check if PHP-FPM is installed for the detected version
+    if [ ! -S "/var/run/php/php${php_version}-fpm.sock" ]; then
+        echo "Error: PHP-FPM socket not found for PHP ${php_version}"
+        echo "Please ensure PHP-FPM is installed and running"
+        exit 1
+    fi
+
     # Create deploy directory if it doesn't exist
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
@@ -264,15 +279,44 @@ setup_laravel() {
         cp .env.example .env
         php artisan key:generate
         
-        # Prompt for database configuration
-        get_input "Enter database name" db_name
-        get_input "Enter database user" db_user
-        get_input "Enter database password" db_password
+        # Prompt for database type
+        PS3="Select the database type: "
+        db_options=("MySQL" "PostgreSQL" "SQLite")
+        select db_type in "${db_options[@]}"; do
+            case $db_type in
+                "MySQL")
+                    db_connection="mysql"
+                    break
+                    ;;
+                "PostgreSQL")
+                    db_connection="pgsql"
+                    break
+                    ;;
+                "SQLite")
+                    db_connection="sqlite"
+                    touch database/database.sqlite
+                    break
+                    ;;
+                *)
+                    echo "Invalid option. Please select a valid database type."
+                    ;;
+            esac
+        done
         
-        # Update .env file with database credentials
-        sed -i "s/DB_DATABASE=.*/DB_DATABASE=$db_name/" .env
-        sed -i "s/DB_USERNAME=.*/DB_USERNAME=$db_user/" .env
-        sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$db_password/" .env
+        # Update database connection in .env
+        sed -i "s/DB_CONNECTION=.*/DB_CONNECTION=$db_connection/" .env
+        
+        # If not SQLite, get additional database details
+        if [ "$db_connection" != "sqlite" ]; then
+            get_input "Enter database name" db_name
+            get_input "Enter database user" db_user
+            get_input "Enter database password" db_password
+            
+            # Update .env file with database credentials
+            sed -i "s/DB_DATABASE=.*/DB_DATABASE=$db_name/" .env
+            sed -i "s/DB_USERNAME=.*/DB_USERNAME=$db_user/" .env
+            sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$db_password/" .env
+        fi
     fi
     
     # Set proper permissions
@@ -317,26 +361,17 @@ EOF"
 server {
     listen 80;
     server_name ${app_name};
+    
     root $(pwd)/public;
-    
-    add_header X-Frame-Options 'SAMEORIGIN';
-    add_header X-XSS-Protection '1; mode=block';
-    add_header X-Content-Type-Options 'nosniff';
-    
     index index.php;
-    charset utf-8;
     
     location / {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
     
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-    
-    error_page 404 /index.php;
-    
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+        fastcgi_pass unix:/var/run/php/php${php_version}-fpm.sock;
+        fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         include fastcgi_params;
     }
