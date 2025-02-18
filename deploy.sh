@@ -47,8 +47,20 @@ setup_nodejs() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
+    # Get the repository URL
+    get_input "Enter the git repository URL" repo_url validate_repo_url
+    
+    # Ask for branch name (optional)
+    get_input "Enter the branch name (press Enter for default branch)" branch_name
+    
     # Clone the repository
-    git clone "$repo_url" .
+    if [ -n "$branch_name" ]; then
+        echo "Cloning repository from branch: $branch_name"
+        git clone -b "$branch_name" "$repo_url" .
+    else
+        echo "Cloning repository from default branch"
+        git clone "$repo_url" .
+    fi
     
     # Install dependencies
     echo "Installing dependencies..."
@@ -98,8 +110,20 @@ setup_python() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
+    # Get the repository URL
+    get_input "Enter the git repository URL" repo_url validate_repo_url
+    
+    # Ask for branch name (optional)
+    get_input "Enter the branch name (press Enter for default branch)" branch_name
+    
     # Clone the repository
-    git clone "$repo_url" .
+    if [ -n "$branch_name" ]; then
+        echo "Cloning repository from branch: $branch_name"
+        git clone -b "$branch_name" "$repo_url" .
+    else
+        echo "Cloning repository from default branch"
+        git clone "$repo_url" .
+    fi
     
     # Create and activate virtual environment
     echo "Creating virtual environment..."
@@ -197,8 +221,20 @@ setup_java_spring() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
+    # Get the repository URL
+    get_input "Enter the git repository URL" repo_url validate_repo_url
+    
+    # Ask for branch name (optional)
+    get_input "Enter the branch name (press Enter for default branch)" branch_name
+    
     # Clone the repository
-    git clone "$repo_url" .
+    if [ -n "$branch_name" ]; then
+        echo "Cloning repository from branch: $branch_name"
+        git clone -b "$branch_name" "$repo_url" .
+    else
+        echo "Cloning repository from default branch"
+        git clone "$repo_url" .
+    fi
     
     # Check for Maven or Gradle
     if [ -f "pom.xml" ]; then
@@ -267,8 +303,20 @@ setup_laravel() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
+    # Get the repository URL
+    get_input "Enter the git repository URL" repo_url validate_repo_url
+    
+    # Ask for branch name (optional)
+    get_input "Enter the branch name (press Enter for default branch)" branch_name
+    
     # Clone the repository
-    git clone "$repo_url" .
+    if [ -n "$branch_name" ]; then
+        echo "Cloning repository from branch: $branch_name"
+        git clone -b "$branch_name" "$repo_url" .
+    else
+        echo "Cloning repository from default branch"
+        git clone "$repo_url" .
+    fi
     
     # Install Composer dependencies
     echo "Installing Composer dependencies..."
@@ -407,8 +455,20 @@ setup_remix() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
+    # Get the repository URL
+    get_input "Enter the git repository URL" repo_url validate_repo_url
+    
+    # Ask for branch name (optional)
+    get_input "Enter the branch name (press Enter for default branch)" branch_name
+    
     # Clone the repository
-    git clone "$repo_url" .
+    if [ -n "$branch_name" ]; then
+        echo "Cloning repository from branch: $branch_name"
+        git clone -b "$branch_name" "$repo_url" .
+    else
+        echo "Cloning repository from default branch"
+        git clone "$repo_url" .
+    fi
     
     # Install dependencies
     echo "Installing dependencies..."
