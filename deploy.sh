@@ -256,16 +256,24 @@ setup_laravel() {
     fi
     echo "Detected PHP version: $php_version"
     
-    # Check if PHP-FPM is installed for the detected version
-    if [ ! -S "/var/run/php/php${php_version}-fpm.sock" ]; then
-        echo "Error: PHP-FPM socket not found for PHP ${php_version}"
-        echo "Please ensure PHP-FPM is installed and running"
-        exit 1
-    fi
-
     # Create deploy directory if it doesn't exist
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
+    
+    # Check if directory is not empty
+    if [ "$(ls -A .)" ]; then
+        echo "Directory is not empty."
+        get_input "Do you want to remove existing files? (yes/no)" should_remove
+        
+        if [ "$should_remove" = "yes" ]; then
+            echo "Removing existing files..."
+            rm -rf ./*
+            rm -rf ./.[!.]*  # Remove hidden files too
+        else
+            echo "Cannot proceed with non-empty directory. Please clear it manually or choose a different directory."
+            exit 1
+        fi
+    fi
     
     # Clone the repository
     git clone "$repo_url" .
@@ -311,16 +319,41 @@ setup_laravel() {
             get_input "Enter database name" db_name
             get_input "Enter database user" db_user
             get_input "Enter database password" db_password
+            get_input "Enter database host (default: localhost)" db_host
+            db_host=${db_host:-localhost}
+            get_input "Enter database port (default: 3306 for MySQL, 5432 for PostgreSQL)" db_port
             
-            # Update .env file with database credentials
+            # Set default port if not provided
+            if [ -z "$db_port" ]; then
+                if [ "$db_connection" = "mysql" ]; then
+                    db_port="3306"
+                else
+                    db_port="5432"
+                fi
+            fi
+            
+            # Uncomment and update database values
+            sed -i 's/^#DB_HOST=/DB_HOST=/' .env
+            sed -i 's/^#DB_PORT=/DB_PORT=/' .env
+            sed -i 's/^#DB_DATABASE=/DB_DATABASE=/' .env
+            sed -i 's/^#DB_USERNAME=/DB_USERNAME=/' .env
+            sed -i 's/^#DB_PASSWORD=/DB_PASSWORD=/' .env
+            
+            # Now update the values
+            sed -i "s/DB_HOST=.*/DB_HOST=$db_host/" .env
+            sed -i "s/DB_PORT=.*/DB_PORT=$db_port/" .env
             sed -i "s/DB_DATABASE=.*/DB_DATABASE=$db_name/" .env
             sed -i "s/DB_USERNAME=.*/DB_USERNAME=$db_user/" .env
             sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$db_password/" .env
         fi
+        
+        get_input "Enter the domain name (e.g., example.com)" domain_name
+        sed -i "s#APP_URL=.*#APP_URL=http://${domain_name}#" .env
     fi
     
     # Set proper permissions
-    chmod -R 775 storage bootstrap/cache
+    sudo chown -R www-data:www-data storage bootstrap/cache
+    sudo chmod -R 775 storage bootstrap/cache
     
     # Run migrations
     echo "Running database migrations..."
@@ -336,35 +369,18 @@ setup_laravel() {
     php artisan route:cache
     php artisan view:cache
     
-    # Set up Apache/Nginx configuration
-    echo "Setting up web server configuration..."
-    if command -v apache2 &> /dev/null; then
-        # Apache configuration
-        sudo bash -c "cat > /etc/apache2/sites-available/${app_name}.conf << EOF
-<VirtualHost *:80>
-    ServerName ${app_name}
-    DocumentRoot $(pwd)/public
-    
-    <Directory $(pwd)/public>
-        Options Indexes FollowSymLinks
-        AllowOverride All
-        Require all granted
-    </Directory>
-    
-    ErrorLog \${APACHE_LOG_DIR}/${app_name}_error.log
-    CustomLog \${APACHE_LOG_DIR}/${app_name}_access.log combined
-</VirtualHost>
-EOF"
-        
-        sudo a2ensite ${app_name}
-        sudo systemctl reload apache2
-        
-    elif command -v nginx &> /dev/null; then
-        # Nginx configuration
-        sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
+    # Ask user for proxy preference
+    echo "Select the proxy server to use:"
+    select proxy in "Nginx" "Apache"; do
+        case $proxy in
+            "Nginx")
+                # Set up Nginx configuration
+                echo "Setting up Nginx configuration..."
+                
+                sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
 server {
     listen 80;
-    server_name ${app_name};
+    server_name ${domain_name};
     
     root $(pwd)/public;
     index index.php;
@@ -385,14 +401,45 @@ server {
     }
 }
 EOF"
-        
-        sudo ln -s /etc/nginx/sites-available/${app_name} /etc/nginx/sites-enabled/
-        sudo systemctl reload nginx
-    else
-        echo "Neither Apache nor Nginx found. Please install a web server manually."
-    fi
+                
+                sudo ln -sf /etc/nginx/sites-available/${app_name} /etc/nginx/sites-enabled/
+                sudo nginx -t && sudo systemctl reload nginx
+                break
+                ;;
+                
+            "Apache")
+                # Set up Apache configuration
+                echo "Setting up Apache configuration..."
+                sudo bash -c "cat > /etc/apache2/sites-available/${app_name}.conf << EOF
+<VirtualHost *:80>
+    ServerName ${domain_name}
+    ServerAdmin webmaster@localhost
+    DocumentRoot $(pwd)/public
+    
+    <Directory $(pwd)/public>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/${app_name}_error.log
+    CustomLog \${APACHE_LOG_DIR}/${app_name}_access.log combined
+</VirtualHost>
+EOF"
+                
+                sudo a2ensite ${app_name}
+                sudo a2enmod rewrite
+                sudo systemctl reload apache2
+                break
+                ;;
+            *)
+                echo "Invalid option. Please select 1 for Nginx or 2 for Apache."
+                ;;
+        esac
+    done
     
     echo "Laravel application deployed successfully!"
+    echo "Your application is now accessible at http://${domain_name}"
 }
 
 # Function to set up Remix application
