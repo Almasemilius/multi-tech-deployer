@@ -321,12 +321,12 @@ setup_laravel() {
                 fi
             fi
             
-            # Uncomment and update database configuration
-            sed -i '/^#DB_HOST=/s/^#//' .env
-            sed -i '/^#DB_PORT=/s/^#//' .env
-            sed -i '/^#DB_DATABASE=/s/^#//' .env
-            sed -i '/^#DB_USERNAME=/s/^#//' .env
-            sed -i '/^#DB_PASSWORD=/s/^#//' .env
+            # Simply remove the # from the beginning of each DB line
+            sed -i 's/^# DB_HOST=/DB_HOST=/' .env
+            sed -i 's/^# DB_PORT=/DB_PORT=/' .env
+            sed -i 's/^# DB_DATABASE=/DB_DATABASE=/' .env
+            sed -i 's/^# DB_USERNAME=/DB_USERNAME=/' .env
+            sed -i 's/^# DB_PASSWORD=/DB_PASSWORD=/' .env
             
             # Update the values
             sed -i "s/^DB_HOST=.*$/DB_HOST=${db_host}/" .env
