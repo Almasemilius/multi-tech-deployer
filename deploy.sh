@@ -336,6 +336,16 @@ setup_laravel() {
     php artisan route:cache
     php artisan view:cache
     
+    # Get application name if not already set
+    if [ -z "$app_name" ]; then
+        get_input "Enter the application name (for service naming)" app_name
+    fi
+
+    # Get domain name if not already set
+    if [ -z "$domain_name" ]; then
+        get_input "Enter the domain name (e.g., example.com)" domain_name
+    fi
+
     # Set up Nginx configuration
     echo "Setting up Nginx configuration..."
     sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
@@ -343,18 +353,18 @@ server {
     listen 80;
     server_name ${domain_name};
     
-    root $(pwd)/public;
+    root ${deploy_dir}/public;
     index index.php;
     
     location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
+        try_files \\\$uri \\\$uri/ /index.php?\\\$query_string;
     }
     
-    location ~ \.php$ {
+    location ~ \.php\$ {
         include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_param SCRIPT_FILENAME \\\$document_root\\\$fastcgi_script_name;
         fastcgi_pass unix:/var/run/php/php${php_version}-fpm.sock;
-        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_split_path_info ^(.+\.php)(/.+)\$;
     }
     
     location ~ /\.(?!well-known).* {
