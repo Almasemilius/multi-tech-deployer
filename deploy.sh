@@ -47,20 +47,8 @@ setup_nodejs() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
-    # Get the repository URL
-    get_input "Enter the git repository URL" repo_url validate_repo_url
-    
-    # Ask for branch name (optional)
-    get_input "Enter the branch name (press Enter for default branch)" branch_name
-    
     # Clone the repository
-    if [ -n "$branch_name" ]; then
-        echo "Cloning repository from branch: $branch_name"
-        git clone -b "$branch_name" "$repo_url" .
-    else
-        echo "Cloning repository from default branch"
-        git clone "$repo_url" .
-    fi
+    git clone "$repo_url" .
     
     # Install dependencies
     echo "Installing dependencies..."
@@ -110,20 +98,8 @@ setup_python() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
-    # Get the repository URL
-    get_input "Enter the git repository URL" repo_url validate_repo_url
-    
-    # Ask for branch name (optional)
-    get_input "Enter the branch name (press Enter for default branch)" branch_name
-    
     # Clone the repository
-    if [ -n "$branch_name" ]; then
-        echo "Cloning repository from branch: $branch_name"
-        git clone -b "$branch_name" "$repo_url" .
-    else
-        echo "Cloning repository from default branch"
-        git clone "$repo_url" .
-    fi
+    git clone "$repo_url" .
     
     # Create and activate virtual environment
     echo "Creating virtual environment..."
@@ -221,20 +197,8 @@ setup_java_spring() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
-    # Get the repository URL
-    get_input "Enter the git repository URL" repo_url validate_repo_url
-    
-    # Ask for branch name (optional)
-    get_input "Enter the branch name (press Enter for default branch)" branch_name
-    
     # Clone the repository
-    if [ -n "$branch_name" ]; then
-        echo "Cloning repository from branch: $branch_name"
-        git clone -b "$branch_name" "$repo_url" .
-    else
-        echo "Cloning repository from default branch"
-        git clone "$repo_url" .
-    fi
+    git clone "$repo_url" .
     
     # Check for Maven or Gradle
     if [ -f "pom.xml" ]; then
@@ -292,19 +256,24 @@ setup_laravel() {
     fi
     echo "Detected PHP version: $php_version"
     
-    # Check if PHP-FPM is installed for the detected version
-    if [ ! -S "/var/run/php/php${php_version}-fpm.sock" ]; then
-        echo "Error: PHP-FPM socket not found for PHP ${php_version}"
-        echo "Please ensure PHP-FPM is installed and running"
-        exit 1
-    fi
-
     # Create deploy directory if it doesn't exist
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
-    # Get the repository URL
-    get_input "Enter the git repository URL" repo_url validate_repo_url
+    # Check if directory is not empty
+    if [ "$(ls -A .)" ]; then
+        echo "Directory is not empty."
+        get_input "Do you want to remove existing files? (yes/no)" should_remove
+        
+        if [ "$should_remove" = "yes" ]; then
+            echo "Removing existing files..."
+            rm -rf ./*
+            rm -rf ./.[!.]*  # Remove hidden files too
+        else
+            echo "Cannot proceed with non-empty directory. Please clear it manually or choose a different directory."
+            exit 1
+        fi
+    fi
     
     # Ask for branch name (optional)
     get_input "Enter the branch name (press Enter for default branch)" branch_name
@@ -455,20 +424,8 @@ setup_remix() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
-    # Get the repository URL
-    get_input "Enter the git repository URL" repo_url validate_repo_url
-    
-    # Ask for branch name (optional)
-    get_input "Enter the branch name (press Enter for default branch)" branch_name
-    
     # Clone the repository
-    if [ -n "$branch_name" ]; then
-        echo "Cloning repository from branch: $branch_name"
-        git clone -b "$branch_name" "$repo_url" .
-    else
-        echo "Cloning repository from default branch"
-        git clone "$repo_url" .
-    fi
+    git clone "$repo_url" .
     
     # Install dependencies
     echo "Installing dependencies..."
