@@ -367,7 +367,7 @@ setup_laravel() {
 
     # Set up Nginx configuration
     echo "Setting up Nginx configuration..."
-    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
+    sudo bash -c "cat > /etc/nginx/sites-available/${app_name}.conf << EOF
 server {
     listen 80;
     server_name ${domain_name};
@@ -392,7 +392,7 @@ server {
 }
 EOF"
     
-    sudo ln -sf /etc/nginx/sites-available/${app_name} /etc/nginx/sites-enabled/
+    sudo ln -sf /etc/nginx/sites-available/${app_name}.conf /etc/nginx/sites-enabled/
     sudo nginx -t && sudo systemctl reload nginx
 
     echo "Laravel application deployed successfully!"
