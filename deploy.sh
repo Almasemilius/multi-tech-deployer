@@ -303,37 +303,19 @@ setup_laravel() {
             esac
         done
         
+        # Update database connection in .env
+        sed -i "s/DB_CONNECTION=.*/DB_CONNECTION=$db_connection/" .env
+        
         # If not SQLite, get additional database details
         if [ "$db_connection" != "sqlite" ]; then
             get_input "Enter database name" db_name
             get_input "Enter database user" db_user
             get_input "Enter database password" db_password
-            get_input "Enter database host (default: localhost)" db_host
-            db_host=${db_host:-localhost}
-            get_input "Enter database port (default: 3306 for MySQL, 5432 for PostgreSQL)" db_port
             
-            # Set default port if not provided
-            if [ -z "$db_port" ]; then
-                if [ "$db_connection" = "mysql" ]; then
-                    db_port="3306"
-                else
-                    db_port="5432"
-                fi
-            fi
-            
-            # First uncomment the database configuration lines if they're commented
-            sed -i 's/^#DB_HOST=.*$/DB_HOST=127.0.0.1/' .env
-            sed -i 's/^#DB_PORT=.*$/DB_PORT=3306/' .env
-            sed -i 's/^#DB_DATABASE=.*$/DB_DATABASE=laravel/' .env
-            sed -i 's/^#DB_USERNAME=.*$/DB_USERNAME=root/' .env
-            sed -i 's/^#DB_PASSWORD=.*$/DB_PASSWORD=/' .env
-            
-            # Then update with the new values
-            sed -i "s/^DB_HOST=.*$/DB_HOST=$db_host/" .env
-            sed -i "s/^DB_PORT=.*$/DB_PORT=$db_port/" .env
-            sed -i "s/^DB_DATABASE=.*$/DB_DATABASE=$db_name/" .env
-            sed -i "s/^DB_USERNAME=.*$/DB_USERNAME=$db_user/" .env
-            sed -i "s/^DB_PASSWORD=.*$/DB_PASSWORD=$db_password/" .env
+            # Update .env file with database credentials
+            sed -i "s/DB_DATABASE=.*/DB_DATABASE=$db_name/" .env
+            sed -i "s/DB_USERNAME=.*/DB_USERNAME=$db_user/" .env
+            sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$db_password/" .env
         fi
     fi
     
