@@ -453,20 +453,29 @@ setup_remix() {
     
     # Set up Nginx configuration
     echo "Setting up Nginx configuration..."
-    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
+    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << 'EOF'
 server {
     listen 80;
     server_name ${domain_name};
 
+    # Static files
+    location /_static {
+        alias $(pwd)/public/build;
+        try_files \$uri =404;
+    }
+
+    # Everything else goes to Remix
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host \$host;
+        proxy_set_header X-Forwarded-Port \$server_port;
+        proxy_read_timeout 240s;
     }
 }
 EOF"
@@ -501,6 +510,8 @@ EOF"
     
     echo "Remix application deployed successfully!"
     echo "Your application is now accessible at http://${domain_name}"
+    echo "Check the service status with: sudo systemctl status ${app_name}"
+    echo "View logs with: sudo journalctl -u ${app_name} -f"
 }
 
 # Main script
