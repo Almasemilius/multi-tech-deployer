@@ -362,6 +362,10 @@ setup_laravel() {
     echo "Running database migrations..."
     php artisan migrate --force
 
+	#Creating Storage Link
+	echo "Creating Storage Link..."
+	php artisan storage:link
+
 	#Seed Database
 	echo "Seeding database..."
 	php artisan db:seed
@@ -424,8 +428,17 @@ setup_remix() {
     mkdir -p "$deploy_dir"
     cd "$deploy_dir"
     
+    # Ask for branch name (optional)
+    get_input "Enter the branch name (press Enter for default branch)" branch_name
+    
     # Clone the repository
-    git clone "$repo_url" .
+    if [ -n "$branch_name" ]; then
+        echo "Cloning repository from branch: $branch_name"
+        git clone -b "$branch_name" "$repo_url" .
+    else
+        echo "Cloning repository from default branch"
+        git clone "$repo_url" .
+    fi
     
     # Install dependencies
     echo "Installing dependencies..."
@@ -435,11 +448,34 @@ setup_remix() {
     echo "Building Remix application..."
     npm run build
     
-    # Get port number for the application
-    get_input "Enter the port number for the Remix app (e.g., 3000)" app_port
+    # Get domain name for the application
     get_input "Enter the domain name (e.g., example.com)" domain_name
     
-    # Create systemd service file for the Remix app
+    # Set up Nginx configuration
+    echo "Setting up Nginx configuration..."
+    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
+server {
+    listen 80;
+    server_name ${domain_name};
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+EOF"
+    
+    # Create symbolic link and test Nginx configuration
+    sudo ln -sf /etc/nginx/sites-available/${app_name} /etc/nginx/sites-enabled/
+    sudo nginx -t && sudo systemctl reload nginx
+    
+    # Create systemd service file
     echo "Setting up systemd service..."
     sudo bash -c "cat > /etc/systemd/system/${app_name}.service << EOF
 [Unit]
@@ -450,120 +486,21 @@ After=network.target
 Type=simple
 User=$(whoami)
 WorkingDirectory=$(pwd)
-Environment=PORT=${app_port}
+Environment=PORT=3000
 Environment=NODE_ENV=production
 ExecStart=$(which npm) start
 Restart=always
-RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF"
-    
-    # Set up Nginx configuration as reverse proxy
-    echo "Setting up Nginx configuration..."
-    sudo bash -c "cat > /etc/nginx/sites-available/${app_name} << EOF
-# Upstream for Remix app
-upstream ${app_name}_upstream {
-    server 127.0.0.1:${app_port};
-    keepalive 64;
-}
-
-# Redirect HTTP to HTTPS
-server {
-    listen 80;
-    server_name ${domain_name};
-    return 301 https://\$server_name\$request_uri;
-}
-
-# Main server block
-server {
-    listen 443 ssl http2;
-    server_name ${domain_name};
-
-    # SSL configuration
-    ssl_certificate /etc/letsencrypt/live/${domain_name}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${domain_name}/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
-    ssl_prefer_server_ciphers off;
-
-    # SSL Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    # Logs
-    access_log /var/log/nginx/${app_name}_access.log combined buffer=512k flush=1m;
-    error_log /var/log/nginx/${app_name}_error.log warn;
-
-    # Proxy settings
-    location / {
-        proxy_pass http://127.0.0.1:${app_port};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-
-        # Timeouts
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    # Cache static files
-    location /_assets {
-        alias $(pwd)/public/build;
-        expires 30d;
-        access_log off;
-        add_header Cache-Control "public, no-transform";
-    }
-
-    # Enable Gzip compression
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_proxied expired no-cache no-store private auth;
-    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/javascript application/xml;
-    gzip_disable "MSIE [1-6]\.";
-}
-EOF"
-    
-    # Create symbolic link and test Nginx configuration
-    sudo ln -sf /etc/nginx/sites-available/${app_name} /etc/nginx/sites-enabled/
-    sudo nginx -t
-    
-    # If Nginx test is successful, reload Nginx
-    if [ $? -eq 0 ]; then
-        sudo systemctl reload nginx
-        echo "Nginx configuration has been updated successfully!"
-    else
-        echo "Error in Nginx configuration. Please check the syntax."
-        exit 1
-    fi
-    
-    # Set up SSL certificate using Certbot (if not already installed)
-    if ! command -v certbot &> /dev/null; then
-        echo "Installing Certbot..."
-        sudo apt update
-        sudo apt install -y certbot python3-certbot-nginx
-    fi
-    
-    # Obtain SSL certificate
-    echo "Obtaining SSL certificate..."
-    sudo certbot --nginx -d ${domain_name} --non-interactive --agree-tos --email $(whoami)@${domain_name} --redirect
     
     # Enable and start the service
     sudo systemctl enable "${app_name}.service"
     sudo systemctl start "${app_name}.service"
     
     echo "Remix application deployed successfully!"
-    echo "Your application is now accessible at https://${domain_name}"
+    echo "Your application is now accessible at http://${domain_name}"
 }
 
 # Main script
